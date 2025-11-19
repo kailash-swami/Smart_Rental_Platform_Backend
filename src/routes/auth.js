@@ -10,13 +10,19 @@ router.post('/session', verifyFirebaseToken, async (req, res) => {
   try {
     // First try to find by firebaseId
     let user = null
-    if (fb && fb.uid) {
-      user = await prisma.user.findUnique({ where: { firebaseId: fb.uid }})
-    }
+        if (fb && fb.uid) {
+          // `firebaseId` is not a standalone unique field in the schema (it's
+          // part of a compound unique with `role`). Use `findFirst` to locate
+          // any user that has this firebaseId regardless of role.
+          user = await prisma.user.findFirst({ where: { firebaseId: fb.uid }})
+        }
 
     // If not found by firebaseId, try to find by email and link accounts
     if (!user && fb && fb.email) {
-      user = await prisma.user.findUnique({ where: { email: fb.email }})
+          // `email` may no longer be a standalone unique field (multiple
+          // profiles per-email differentiated by role). Use `findFirst` to
+          // locate an existing user by email.
+          user = await prisma.user.findFirst({ where: { email: fb.email }})
       if (user) {
         // Link firebaseId to existing user (avoid unique email constraint)
         try {
@@ -57,10 +63,10 @@ router.post('/set-role', verifyFirebaseToken, async (req, res) => {
       user = await prisma.user.findUnique({ where: { id: userId } })
     } else if (req.firebase && req.firebase.uid) {
       // Firebase ID token: find by firebaseId
-      user = await prisma.user.findUnique({ where: { firebaseId: req.firebase.uid } })
+          user = await prisma.user.findFirst({ where: { firebaseId: req.firebase.uid } })
       // fallback: try by email
       if (!user && req.firebase.email) {
-        user = await prisma.user.findUnique({ where: { email: req.firebase.email } })
+            user = await prisma.user.findFirst({ where: { email: req.firebase.email } })
       }
     }
 
